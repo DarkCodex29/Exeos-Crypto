@@ -1,0 +1,151 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run static analysis
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: test
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows Tray App
+        run: flutter build windows --target=lib/tray_main.dart --release
+
+      - name: Copy executable
+        run: copy "build\windows\x64\runner\Release\prueba_exeos.exe" "crypto_scanner.exe"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: crypto_scanner.exe
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: ./artifacts/
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: ./artifacts/
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: Release v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Crypto Scanner v${{ steps.version.outputs.VERSION }}
+            
+            ### Características
+            - ✅ Android: PIN → Escáner QR → Lista criptomonedas
+            - ✅ Windows: Bandeja del sistema → PIN → Escáner QR → Lista criptomonedas
+            - ✅ API CoinGecko integrada
+            - ✅ Diseño responsive
+            - ✅ Código QR se pone automáticamente en input
+            
+            ### Archivos
+            - `app-release.apk` - Aplicación Android
+            - `crypto_scanner.exe` - Aplicación Windows (bandeja del sistema)
+            
+            ### Uso Windows
+            1. Ejecutar `crypto_scanner.exe`
+            2. Buscar icono en bandeja del sistema
+            3. Click derecho → "Mostrar UI"
+            4. Introducir PIN → Usar aplicación
+          files: |
+            ./artifacts/app-release.apk
+            ./artifacts/crypto_scanner.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
