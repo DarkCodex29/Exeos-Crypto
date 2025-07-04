@@ -8,9 +8,9 @@ import 'screens/pin_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await windowManager.ensureInitialized();
-  
+
   WindowOptions windowOptions = const WindowOptions(
     size: Size(1, 1),
     minimumSize: Size(1, 1),
@@ -21,11 +21,11 @@ void main() async {
     windowButtonVisibility: false,
     alwaysOnTop: false,
   );
-  
+
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.hide();
   });
-  
+
   runApp(TrayApp());
 }
 
@@ -55,7 +55,8 @@ class TrayWidget extends StatefulWidget {
   State<TrayWidget> createState() => _TrayWidgetState();
 }
 
-class _TrayWidgetState extends State<TrayWidget> with TrayListener, WindowListener {
+class _TrayWidgetState extends State<TrayWidget>
+    with TrayListener, WindowListener {
   @override
   void initState() {
     super.initState();
@@ -78,21 +79,15 @@ class _TrayWidgetState extends State<TrayWidget> with TrayListener, WindowListen
       if (Platform.isWindows) {
         await trayManager.setIcon('windows/runner/resources/app_icon.ico');
       }
-      
+
       Menu menu = Menu(
         items: [
-          MenuItem(
-            key: 'show_ui',
-            label: 'Mostrar UI',
-          ),
+          MenuItem(key: 'show_ui', label: 'Mostrar UI'),
           MenuItem.separator(),
-          MenuItem(
-            key: 'exit',
-            label: 'Salir',
-          ),
+          MenuItem(key: 'exit', label: 'Salir'),
         ],
       );
-      
+
       await trayManager.setContextMenu(menu);
       await trayManager.setToolTip('Crypto Scanner');
     } catch (e) {
@@ -129,13 +124,14 @@ class _TrayWidgetState extends State<TrayWidget> with TrayListener, WindowListen
       await windowManager.center();
       await windowManager.setSkipTaskbar(false);
       await windowManager.setTitle('Crypto Scanner - PIN');
-      
+
       await windowManager.show();
       await windowManager.focus();
-      
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => PinScreen()),
-      );
+
+      if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (context) => PinScreen()));
     } catch (e) {
       debugPrint('Failed to show PIN: $e');
     }
@@ -152,10 +148,11 @@ class _TrayWidgetState extends State<TrayWidget> with TrayListener, WindowListen
     await windowManager.setSkipTaskbar(true);
     await windowManager.setSize(Size(1, 1));
     await windowManager.hide();
-    
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => Container()),
-    );
+
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (context) => Container()));
   }
 
   @override
